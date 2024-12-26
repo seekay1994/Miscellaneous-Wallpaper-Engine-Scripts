@@ -46,5 +46,10 @@ export function update(value) {
             applyY ? (useMultiplier ? Math.max(initialValue.y * sharedValue, 0.01) : sharedValue) : initialValue.y,
             applyZ ? (useMultiplier ? Math.max(initialValue.z * sharedValue, 0.01) : sharedValue) : initialValue.z
         );
+    } else if (typeof initialValue === 'string') {
+        // Handle Text/String type
+        return `${sharedValue}`;
     }
+
+    return value;
 }
