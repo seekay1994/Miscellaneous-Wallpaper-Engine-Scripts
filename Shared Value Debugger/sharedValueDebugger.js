@@ -16,8 +16,8 @@ Every array entry will result in one new line.
 */
 
 export var scriptProperties = createScriptProperties()
-	.addText({   name: 'keys', 			label: 'Shared Keys', 			value: 'value1, #n, value2, #n, value3' })		// Shared value keys
-	.addColor({  name: 'solidColor', 	label: 'Background Color', 		value: new Vec3(0.15, 0.15, 0.2) })				// Text background color
+	.addText({   name: 'keys', 		label: 'Shared Keys', 			value: 'value1, #n, value2, #n, value3' })	// Shared value keys
+	.addColor({  name: 'solidColor', 	label: 'Background Color', 		value: new Vec3(0.15, 0.15, 0.2) })		// Text background color
 	.addSlider({ name: 'pointSize', 	label: 'Point Size', 			value: 16, min: 6, max: 32, integer: true })	// Point size of text
 	.addSlider({ name: 'paddingSize', 	label: 'Padding Size', 			value: 16, min: 0, max: 32, integer: true })	// Text padding
 	.addSlider({ name: 'gapSize', 		label: '#n Gap Size', 			value: 10, min: 5, max: 25, integer: true })	// Size of cisual gaps created by #n and expanded arrays
