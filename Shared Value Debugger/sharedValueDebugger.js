@@ -16,23 +16,26 @@ Every array entry will result in one new line.
 */
 
 export var scriptProperties = createScriptProperties()
-	.addText({   name: 'keys', 		label: 'Shared Keys', 			value: 'value1, #n, value2, #n, value3' })	// Shared value keys
-	.addColor({  name: 'solidColor', 	label: 'Background Color', 		value: new Vec3(0.15, 0.15, 0.2) })		// Text background color
-	.addSlider({ name: 'pointSize', 	label: 'Point Size', 			value: 16, min: 6, max: 32, integer: true })	// Point size of text
-	.addSlider({ name: 'paddingSize', 	label: 'Padding Size', 			value: 16, min: 0, max: 32, integer: true })	// Text padding
-	.addSlider({ name: 'gapSize', 		label: '#n Gap Size', 			value: 10, min: 5, max: 25, integer: true })	// Size of cisual gaps created by #n and expanded arrays
+	.addText({   name: 'keys', 			label: 'Shared Keys', 			value: 'value1, #n, value2, #n, value3' })		// Shared value keys
+	.addColor({  name: 'solidColor', 	label: 'Background Color', 		value: new Vec3(0.15, 0.15, 0.2) })				// Text background color
+	.addSlider({ name: 'pointSize', 	label: 'Point Size', 			value: 10, min: 2, max: 20, integer: true })			// Point size of text
+	.addSlider({ name: 'paddingSize', 	label: 'Padding Size', 			value: 20, min: 0, max: 50, integer: true })			// Text padding
+	.addSlider({ name: 'gapSize', 		label: '#n Gap Size', 			value: 20, min: 0, max: 50, integer: true })			// Size of cisual gaps created by #n and expanded arrays
 .finish();
 
-const TEXT_SCALE = 0.5 									// Text scaling to make the text appear sharper (Default: 0.25)
-const MAX_DECIMALS = 2;									// Max number of decimals any number can have 	(Default: 2)
-const ANIM_SPEED = 8; 									// Animation Speed				(Default: 8)
+const TEXT_SCALE = 1 									// Text scaling to make the text appear sharper 		(Default: 0.25)
+const MAX_DECIMALS = 2;									// Max number of decimals any number can have 			(Default: 2)
+const ANIM_SPEED = 8; 									// Animation Speed						(Default: 8)
+const OVERLAP_COMPENSATION = 5;								// Small offset to avoid overlapping layers 			(Default: 5)
+const COLOR_FACTOR = 0.6								// Factor used to make the main color more light/dark 		(Default: 0.6)
+
 const FONT = 'fonts/RobotoMono-Regular.ttf';						// Name/Location of the font that should be used (there does not seem to be a standard way to reference a font. Some require the path, others just the name)
 const STORAGE_KEY_BASE = "sharedDebugMenuStateCK_";					// Key used for local storage
 
 let windowLayers = [];									// Array storing data about each debug layer (and gaps)
 let showWindows = false;								// Toggle for showing or hiding all debug layers
-const valueCache = {};									// Cache for values that may be temporarily undefined/null
 let holderLayer;									// Reference to parent layer used for alignment and coloring
+const valueCache = {};									// Cache for values that may be temporarily undefined/null
 
 //Builds UI layers based on keys input
 export function init() {
@@ -53,7 +56,7 @@ export function init() {
 			continue;
 		}
 
-		const debugKey = `debugMenu${index++}`; // Unique ID for each debug layer
+		const debugKey = `sharedDebugMenu${index++}`; // Unique ID for each debug layer
 		const textColor = getTextContrastColor(scriptProperties.solidColor); // Choose text color based on background
 
 		// Restore stored expanded state if available
@@ -70,9 +73,9 @@ export function init() {
 			scale: new Vec3(TEXT_SCALE),
 			text: {
 				script: `export function cursorClick() {
-					shared["${debugKey}"] = !shared["${debugKey}"];
-					localStorage.set("${STORAGE_KEY_BASE + debugKey}", shared["${debugKey}"]);
-				}`,
+							shared["${debugKey}"] = !shared["${debugKey}"];
+							localStorage.set("${STORAGE_KEY_BASE + debugKey}", shared["${debugKey}"]);
+						}`,
 				value: ''
 			},
 			color: textColor,
@@ -80,10 +83,11 @@ export function init() {
 			backgroundcolor: scriptProperties.solidColor,
 			font: FONT,
 			pointsize: scriptProperties.pointSize,
-			padding: 4,
-			horizontalalign: 'left'
+			padding: 0,
+			horizontalalign: 'left',
 		});
-
+		
+		textLayer.setParent(thisLayer, false) // Making the new text a child of this layer
 		textLayer._visibilityTimer = 0; // Internal fade animation timer
 		textLayer._smoothY = 0; // Smooth Y-positioning
 
@@ -94,22 +98,22 @@ export function init() {
 // Refresh debug values and layer positions
 export function update() {
 	thisLayer.color = scriptProperties.solidColor;
-	const origin = holderLayer.origin.add(new Vec3(thisLayer.size.x + scriptProperties.gapSize, 0, 0)); // Position to the right of the base layer
+	const origin = new Vec3(scriptProperties.gapSize + OVERLAP_COMPENSATION + scriptProperties.paddingSize, 0, 0); // Position to the right of the base layer
 
 	let yOffset = 0;
-	let zIndex = 1024; // Layer hierarchy index (decreasing)
+	let zIndex = 2048; // Layer hierarchy index (decreasing)
 	const deltaTime = Math.min(1, engine.frametime * ANIM_SPEED);
 
 	for (const win of windowLayers) {
 		if (win.key === '#n') {
-			yOffset -= scriptProperties.gapSize;
+			yOffset -= (scriptProperties.gapSize  * 1.5) + OVERLAP_COMPENSATION + scriptProperties.pointSize + scriptProperties.paddingSize; // Size of gaps created by '#n'-key
 			continue;
 		}
 
 		const rawValue = shared[win.key];
-		const hasValidValue = rawValue !== null && rawValue !== undefined;
+		const hasValidValue = rawValue !== null && rawValue !== undefined; // Check if value is null/undefined
 		const value = hasValidValue ? rawValue : valueCache[win.key]; // Use cached if null/undefined
-		if (hasValidValue) valueCache[win.key] = rawValue;
+		if (hasValidValue) valueCache[win.key] = rawValue; // Use actual value if value is not null/undefined
 
 		win.isArray = Array.isArray(value); // Check if the value is an array
 		const height = updateTextLayer(win, value, origin, yOffset, zIndex--, deltaTime); // Update main value line
@@ -139,11 +143,11 @@ function updateTextLayer(win, value, origin, yOffset, zIndex, deltaTime) {
 	const isArray = win.isArray;
 	const key = win.key;
 
-	const height = (layer.size?.y || 20) * TEXT_SCALE;
+	const height = layer.size.y * TEXT_SCALE;
 	const textColor = getTextContrastColor(scriptProperties.solidColor);
 	const targetVisibility = showWindows ? 1 : 0;
 
-	holderLayer.scale = new Vec3(1, height * 0.66, 1); // Adjust parent layer height to match text-height
+	// holderLayer.scale = new Vec3(1, height * 0.66, 1); // Adjust parent layer height to match text-height
 
 	layer._visibilityTimer = smoothStep(layer._visibilityTimer, targetVisibility, deltaTime);
 	const alpha = easeInOutQuart(layer._visibilityTimer);
@@ -151,7 +155,7 @@ function updateTextLayer(win, value, origin, yOffset, zIndex, deltaTime) {
 	layer._smoothY += (yOffset - layer._smoothY) * deltaTime;
 	layer.text = isArray ? `${key} >` : `${key}: ${format(value)}`; // Display array as collapsible or direct value
 
-	layer.origin = origin.add(new Vec3(5, layer._smoothY));
+	layer.origin = origin.add(new Vec3(OVERLAP_COMPENSATION, layer._smoothY));
 	layer.scale = new Vec3(TEXT_SCALE);
 	layer.pointsize = scriptProperties.pointSize;
 	layer.backgroundcolor = scriptProperties.solidColor;
@@ -167,8 +171,8 @@ function updateTextLayer(win, value, origin, yOffset, zIndex, deltaTime) {
 // Handles child-text-layers
 function updateChildLayers(win, valueArray, origin, yOffset, zIndexStart, deltaTime) {
 	const expanded = shared[win.debugKey]; // Only show if expanded
-	const baseX = (win.textLayer.size?.x * TEXT_SCALE) + scriptProperties.gapSize;
-	const baseColor = colorManager(scriptProperties.solidColor, 0.6); // Slightly lighter/darker background
+	const baseX = win.textLayer.size.x * TEXT_SCALE + scriptProperties.gapSize + OVERLAP_COMPENSATION;
+	const baseColor = colorManager(scriptProperties.solidColor, COLOR_FACTOR); // Slightly lighter/darker background
 	const textColor = getTextContrastColor(baseColor);
 
 	let totalHeight = 0;
@@ -192,13 +196,15 @@ function updateChildLayers(win, valueArray, origin, yOffset, zIndexStart, deltaT
 				color: textColor,
 				opaquebackground: true,
 				backgroundcolor: baseColor,
-				font: 'fonts/RobotoMono-Regular.ttf',
+				font: FONT,
 				pointsize: scriptProperties.pointSize,
-				padding: 4,
+				padding: 0,
 				horizontalalign: 'left'
 			});
-			child._visibilityTimer = 0;
-			child._smoothY = 0;
+
+			child.setParent(thisLayer, false) // Making the new text a child of this layer
+			child._visibilityTimer = 0; // Internal fade animation timer
+			child._smoothY = 0; // Smooth Y-positioning
 		}
 
 		child._visibilityTimer = smoothStep(child._visibilityTimer, (showWindows && expanded) ? 1 : 0, deltaTime);
