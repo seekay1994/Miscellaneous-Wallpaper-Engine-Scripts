@@ -25,14 +25,14 @@ export var scriptProperties = createScriptProperties()
 
 const TEXT_SCALE = 0.5 									// Text scaling to make the text appear sharper (Default: 0.25)
 const MAX_DECIMALS = 2;									// Max number of decimals any number can have 	(Default: 2)
-const ANIM_SPEED = 8; 									// Animation Speed								(Default: 8)
-const FONT = 'fonts/RobotoMono-Regular.ttf';			// Name/Location of the font that should be used (there does not seem to be a standard way to reference a font. Some require the path, others just the name)
-const STORAGE_KEY_BASE = "sharedDebugMenuStateCK_";		// Key used for local storage
+const ANIM_SPEED = 8; 									// Animation Speed				(Default: 8)
+const FONT = 'fonts/RobotoMono-Regular.ttf';						// Name/Location of the font that should be used (there does not seem to be a standard way to reference a font. Some require the path, others just the name)
+const STORAGE_KEY_BASE = "sharedDebugMenuStateCK_";					// Key used for local storage
 
 let windowLayers = [];									// Array storing data about each debug layer (and gaps)
 let showWindows = false;								// Toggle for showing or hiding all debug layers
 const valueCache = {};									// Cache for values that may be temporarily undefined/null
-let holderLayer;										// Reference to parent layer used for alignment and coloring
+let holderLayer;									// Reference to parent layer used for alignment and coloring
 
 //Builds UI layers based on keys input
 export function init() {
