@@ -16,31 +16,28 @@ Every array entry will result in one new line.
 */
 
 export var scriptProperties = createScriptProperties()
-	.addText({   name: 'keys', 		label: 'Shared Keys', 			value: 'value1, #n, value2, #n, value3' })			// Shared value keys
-	.addColor({  name: 'solidColor', 	label: 'Background Color', 		value: new Vec3(0.15, 0.15, 0.2) })				// Text background color
-	.addSlider({ name: 'pointSize', 	label: 'Point Size', 			value: 10, min: 2, max: 20, integer: true })			// Point size of text
-	.addSlider({ name: 'paddingSize', 	label: 'Padding Size', 			value: 20, min: 0, max: 50, integer: true })			// Text padding
-	.addSlider({ name: 'gapSize', 		label: '#n Gap Size', 			value: 20, min: 0, max: 50, integer: true })			// Size of cisual gaps created by #n and expanded arrays
+	.addText({   name: 'keys', 		label: 'Shared Keys', 			value: 'value1, #n, value2, #n, value3' })	// Shared value keys
+	.addColor({  name: 'solidColor', 	label: 'Background Color', 		value: new Vec3(0.15, 0.15, 0.2) })		// Text background color
+	.addSlider({ name: 'pointSize', 	label: 'Point Size', 			value: 10, min: 2, max: 20, integer: true })	// Point size of text
+	.addSlider({ name: 'paddingSize', 	label: 'Padding Size', 			value: 20, min: 0, max: 50, integer: true })	// Text padding
+	.addSlider({ name: 'gapSize', 		label: '#n Gap Size', 			value: 20, min: 0, max: 50, integer: true })	// Size of cisual gaps created by #n and expanded arrays
 .finish();
 
-const TEXT_SCALE = 1 									// Text scaling to make the text appear sharper 		(Default: 0.25)
-const MAX_DECIMALS = 2;									// Max number of decimals any number can have 			(Default: 2)
-const ANIM_SPEED = 8; 									// Animation Speed						(Default: 8)
-const OVERLAP_COMPENSATION = 5;								// Small offset to avoid overlapping layers 			(Default: 5)
-const COLOR_FACTOR = 0.6								// Factor used to make the main color more light/dark 		(Default: 0.6)
+const TEXT_SCALE = 1 					// Text scaling to make the text appear sharper 				(Default: 0.25)
+const MAX_DECIMALS = 2;					// Max number of decimals any number can have 					(Default: 2)
+const ANIM_SPEED = 8; 					// Animation Speed								(Default: 8)
+const OVERLAP_COMPENSATION = 5;				// Small offset to avoid overlapping layers 					(Default: 5)
+const COLOR_FACTOR = 0.6				// Factor used to make the main color more light/dark 				(Default: 0.6)
 
-const FONT = 'fonts/RobotoMono-Regular.ttf';						// Name/Location of the font that should be used (there does not seem to be a standard way to reference a font. Some require the path, others just the name)
-const STORAGE_KEY_BASE = "sharedDebugMenuStateCK_";					// Key used for local storage
+const FONT = 'fonts/RobotoMono-Regular.ttf';		// Name/Location of the font that should be used (there does not seem to be a standard way to reference a font. Some require the path, others just the name)
+const STORAGE_KEY_BASE = "sharedDebugMenuStateCK_";	// Key used for local storage
 
-let windowLayers = [];									// Array storing data about each debug layer (and gaps)
-let showWindows = false;								// Toggle for showing or hiding all debug layers
-let holderLayer, dynamicGapSize;							// Reference to parent layer used for alignment and coloring
-const valueCache = {};									// Cache for values that may be temporarily undefined/null
+let windowLayers = [];					// Array storing data about each debug layer (and gaps)
+let showWindows = false;				// Toggle for showing or hiding all debug layers
+const VALUE_CACHE = {};					// Cache for values that may be temporarily undefined/null
 
 //Builds UI layers based on keys input
 export function init() {
-	holderLayer = thisLayer.getParent();
-
 	let index = 0;
 
 	// Restore visibility state from localStorage
@@ -58,7 +55,6 @@ export function init() {
 		}
 
 		const debugKey = `sharedDebugMenu${index++}`; // Unique ID for each debug layer
-		const textColor = getTextContrastColor(scriptProperties.solidColor); // Choose text color based on background
 
 		// Restore stored expanded state if available
 		const storedExpanded = localStorage.get(STORAGE_KEY_BASE + debugKey);
@@ -70,21 +66,15 @@ export function init() {
 		const textLayer = thisScene.createLayer({
 			type: 'text',
 			name: `WindowText_${key}`,
-			origin: new Vec3(0, 0, 0),
 			scale: new Vec3(TEXT_SCALE),
 			text: {
 				script: `export function cursorClick() {
 							shared["${debugKey}"] = !shared["${debugKey}"];
 							localStorage.set("${STORAGE_KEY_BASE + debugKey}", shared["${debugKey}"]);
-						}`,
-				value: ''
+						}`
 			},
-			color: textColor,
 			opaquebackground: true,
-			backgroundcolor: scriptProperties.solidColor,
 			font: FONT,
-			pointsize: scriptProperties.pointSize,
-			padding: 0,
 			horizontalalign: 'left'
 		});
 		
@@ -98,15 +88,14 @@ export function init() {
 
 // Refresh debug values and layer positions
 export function update() {
-	dynamicGapSize = scriptProperties.gapSize + OVERLAP_COMPENSATION + scriptProperties.pointSize + scriptProperties.paddingSize // Calculate gap size based on text size and gap settings
-
 	thisLayer.color = scriptProperties.solidColor;
 
 	const origin = new Vec3(scriptProperties.gapSize + OVERLAP_COMPENSATION + scriptProperties.paddingSize, 0, 0); // Position to the right of the base layer
 
 	let yOffset = 0;
-	let zIndex = 2048; // Layer hierarchy index (decreasing)
 	const deltaTime = Math.min(1, engine.frametime * ANIM_SPEED);
+
+	let dynamicGapSize = scriptProperties.gapSize + OVERLAP_COMPENSATION + scriptProperties.pointSize + scriptProperties.paddingSize // Calculate gap size based on text size and gap settings
 
 	for (const win of windowLayers) {
 		if (win.key === '#n') {
@@ -116,17 +105,16 @@ export function update() {
 
 		const rawValue = shared[win.key];
 		const hasValidValue = rawValue !== null && rawValue !== undefined; // Check if value is null/undefined
-		const value = hasValidValue ? rawValue : valueCache[win.key]; // Use cached if null/undefined
-		if (hasValidValue) valueCache[win.key] = rawValue; // Use actual value if value is not null/undefined
+		const value = hasValidValue ? rawValue : VALUE_CACHE[win.key]; // Use cached if null/undefined
+		if (hasValidValue) VALUE_CACHE[win.key] = rawValue; // Use actual value if value is not null/undefined
 
 		win.isArray = Array.isArray(value); // Check if the value is an array
-		const height = updateTextLayer(win, value, origin, yOffset, zIndex--, deltaTime); // Update main value line
+		const height = updateTextLayer(win, value, origin, yOffset, deltaTime); // Update main value line
 
 		let childHeight = 0;
 		if (win.isArray) {
-			childHeight = updateChildLayers(win, value, origin, yOffset, zIndex, deltaTime); // Add entries for arrays
+			childHeight = updateChildLayers(win, value, origin, yOffset, deltaTime, dynamicGapSize); // Add entries for arrays
 			cleanupOrphanedChildren(win, value.length); // Remove old unused children
-			zIndex -= value.length;
 		}
 
 		let effectiveHeight = height;
@@ -140,7 +128,7 @@ export function update() {
 }
 
 // Handles main text-layers
-function updateTextLayer(win, value, origin, yOffset, zIndex, deltaTime) {
+function updateTextLayer(win, value, origin, yOffset, deltaTime) {
 	const layer = win.textLayer;
 	const isArray = win.isArray;
 	const key = win.key;
@@ -163,13 +151,12 @@ function updateTextLayer(win, value, origin, yOffset, zIndex, deltaTime) {
 	layer.color = textColor;
 	layer.alpha = alpha;
 	layer.visible = alpha > 0.001;
-	layer.z = zIndex;
 
 	return height * alpha; // Return visual height contribution
 }
 
 // Handles child-text-layers
-function updateChildLayers(win, valueArray, origin, yOffset, zIndexStart, deltaTime) {
+function updateChildLayers(win, valueArray, origin, yOffset, deltaTime, dynamicGapSize) {
 	const expanded = shared[win.debugKey]; // Only show if expanded
 	const baseX = win.textLayer.size.x * TEXT_SCALE + scriptProperties.gapSize + OVERLAP_COMPENSATION;
 	const baseColor = colorManager(scriptProperties.solidColor, COLOR_FACTOR); // Slightly lighter/darker background
@@ -182,7 +169,7 @@ function updateChildLayers(win, valueArray, origin, yOffset, zIndexStart, deltaT
 		const value = valueArray[i];
 		const key = `${win.key}[${i}]`;
 
-		if (value != null) valueCache[key] = value;
+		if (value != null) VALUE_CACHE[key] = value;
 
 		let child = win.children[i];
 		if (!child) {
@@ -190,15 +177,10 @@ function updateChildLayers(win, valueArray, origin, yOffset, zIndexStart, deltaT
 			child = win.children[i] = thisScene.createLayer({
 				type: 'text',
 				name: `WindowText_${key}`,
-				origin: new Vec3(0, 0, 0),
 				scale: new Vec3(TEXT_SCALE),
 				text: '',
-				color: textColor,
 				opaquebackground: true,
-				backgroundcolor: baseColor,
 				font: FONT,
-				pointsize: scriptProperties.pointSize,
-				padding: 0,
 				horizontalalign: 'left'
 			});
 
@@ -219,9 +201,8 @@ function updateChildLayers(win, valueArray, origin, yOffset, zIndexStart, deltaT
 		child.backgroundcolor = baseColor;
 		child.color = textColor;
 		child.alpha = eased;
-		child.text = format(valueCache[key]);
+		child.text = format(VALUE_CACHE[key]);
 		child.visible = eased > 0.001;
-		child.z = zIndexStart - i;
 
 		entryY -= height * eased;
 		totalHeight += height * eased;
@@ -257,7 +238,7 @@ function colorManager(color, factor) {
 	const lum = 0.299 * color.x + 0.587 * color.y + 0.114 * color.z;
 	const mod = v => lum > 0.5 ? Math.min(1, v + (1 - v) * factor) : Math.max(0, v * (1 - factor));
 
-	holderLayer.color = new Vec3(mod(color.x), mod(color.y), mod(color.z));
+	thisLayer.getParent().color = new Vec3(mod(color.x), mod(color.y), mod(color.z));
 	
 	return new Vec3(mod(color.x), mod(color.y), mod(color.z));
 }
