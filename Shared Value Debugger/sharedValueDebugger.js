@@ -16,7 +16,7 @@ Every array entry will result in one new line.
 */
 
 export var scriptProperties = createScriptProperties()
-	.addText({   name: 'keys', 			label: 'Shared Keys', 			value: 'value1, #n, value2, #n, value3' })		// Shared value keys
+	.addText({   name: 'keys', 		label: 'Shared Keys', 			value: 'value1, #n, value2, #n, value3' })			// Shared value keys
 	.addColor({  name: 'solidColor', 	label: 'Background Color', 		value: new Vec3(0.15, 0.15, 0.2) })				// Text background color
 	.addSlider({ name: 'pointSize', 	label: 'Point Size', 			value: 10, min: 2, max: 20, integer: true })			// Point size of text
 	.addSlider({ name: 'paddingSize', 	label: 'Padding Size', 			value: 20, min: 0, max: 50, integer: true })			// Text padding
@@ -34,12 +34,13 @@ const STORAGE_KEY_BASE = "sharedDebugMenuStateCK_";					// Key used for local st
 
 let windowLayers = [];									// Array storing data about each debug layer (and gaps)
 let showWindows = false;								// Toggle for showing or hiding all debug layers
-let holderLayer;									// Reference to parent layer used for alignment and coloring
+let holderLayer, dynamicGapSize;							// Reference to parent layer used for alignment and coloring
 const valueCache = {};									// Cache for values that may be temporarily undefined/null
 
 //Builds UI layers based on keys input
 export function init() {
 	holderLayer = thisLayer.getParent();
+
 	let index = 0;
 
 	// Restore visibility state from localStorage
@@ -84,7 +85,7 @@ export function init() {
 			font: FONT,
 			pointsize: scriptProperties.pointSize,
 			padding: 0,
-			horizontalalign: 'left',
+			horizontalalign: 'left'
 		});
 		
 		textLayer.setParent(thisLayer, false) // Making the new text a child of this layer
@@ -97,7 +98,10 @@ export function init() {
 
 // Refresh debug values and layer positions
 export function update() {
+	dynamicGapSize = scriptProperties.gapSize + OVERLAP_COMPENSATION + scriptProperties.pointSize + scriptProperties.paddingSize // Calculate gap size based on text size and gap settings
+
 	thisLayer.color = scriptProperties.solidColor;
+
 	const origin = new Vec3(scriptProperties.gapSize + OVERLAP_COMPENSATION + scriptProperties.paddingSize, 0, 0); // Position to the right of the base layer
 
 	let yOffset = 0;
@@ -106,7 +110,7 @@ export function update() {
 
 	for (const win of windowLayers) {
 		if (win.key === '#n') {
-			yOffset -= (scriptProperties.gapSize  * 1.5) + OVERLAP_COMPENSATION + scriptProperties.pointSize + scriptProperties.paddingSize; // Size of gaps created by '#n'-key
+			yOffset -= dynamicGapSize; // Size of gaps created by '#n'-key
 			continue;
 		}
 
@@ -126,14 +130,12 @@ export function update() {
 		}
 
 		let effectiveHeight = height;
-		let postGap = 0;
 		if (win.isArray && win.children[0]) {
 			const childEase = easeInOutQuart(win.children[0]._visibilityTimer);
 			effectiveHeight *= (1.0 - childEase);
-			postGap = scriptProperties.gapSize * childEase;
 		}
 
-		yOffset -= effectiveHeight + childHeight + postGap;  // Move Y-position downward
+		yOffset -= effectiveHeight + childHeight; // Move Y-position downward
 	}
 }
 
@@ -146,8 +148,6 @@ function updateTextLayer(win, value, origin, yOffset, zIndex, deltaTime) {
 	const height = layer.size.y * TEXT_SCALE;
 	const textColor = getTextContrastColor(scriptProperties.solidColor);
 	const targetVisibility = showWindows ? 1 : 0;
-
-	// holderLayer.scale = new Vec3(1, height * 0.66, 1); // Adjust parent layer height to match text-height
 
 	layer._visibilityTimer = smoothStep(layer._visibilityTimer, targetVisibility, deltaTime);
 	const alpha = easeInOutQuart(layer._visibilityTimer);
@@ -227,7 +227,7 @@ function updateChildLayers(win, valueArray, origin, yOffset, zIndexStart, deltaT
 		totalHeight += height * eased;
 	}
 
-	return totalHeight; // Total space taken by children
+	return expanded ? totalHeight + dynamicGapSize : totalHeight; // Total space taken by children (+ dynamic gap)
 }
 
 // Clean up unused children
